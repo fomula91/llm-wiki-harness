@@ -1,7 +1,7 @@
 # LLM-WIKI 하네스 (Claude Code 플러그인)
 
-realtime-wait에서 검증된 "위키 = LLM 장기 기억" 하네스에서 **프로젝트 공통 부분만** 추출한 보일러플레이트.
-어떤 코드 저장소든 `/llm-wiki-init` 한 번으로, Claude Code 세션이 위키를 기억으로 쓰고 세션 결과를 위키에 남기는 루프가 생긴다.
+"위키 = LLM 장기 기억" 하네스.
+어떤 코드 저장소든 `/llm-wiki-init` 한 번으로, Claude Code 세션이 위키를 기억으로 쓰고 세션 결과를 위키에 남기는 루프가 생긴다: 세션 시작에 최근 로그·열린 과제가 자동 주입되고, 세션이 끝나기 전 작업 기록을 남기도록 훅이 강제한다.
 
 ## 설치 (머신당 1회)
 
@@ -73,17 +73,17 @@ claude plugin install llm-wiki-harness@llm-wiki-harness --scope user
 - `jq` (SessionStart 기억 주입 훅이 사용)
 - 외부 vault 모드: git remote가 설정된 위키 repo. 위키 경로는 머신마다 다르므로 각 머신의 `.claude/settings.local.json`(git 미커밋)에서 `env.WIKI_ROOT`로 지정 — 훅은 `$WIKI_ROOT` → 설치 시 구운 기본 경로 순으로 위키를 찾는다.
 
-## 의도적으로 뺀 것 (프로젝트 고유 하네스)
+## 하네스에 포함하지 않은 것 (프로젝트별로 만들 것)
 
-realtime-wait에는 있지만 공통이 아니라서 뺐다. 새 프로젝트에서 필요해지면 각자 만든다.
+스택·저장소 구조에 종속되는 것들은 의도적으로 뺐다. 설치 후 프로젝트마다 직접 채운다.
 
 - **검증 단계 표 + 실패 원인 분류표** (CLAUDE.md) — 스택마다 다르다. TODO 골격만 남김. 이것이 하네스의 절반이므로 꼭 채울 것
-- **도메인 서브에이전트** (`.claude/agents/` — worker-dev, frontend-dev, reviewer 등) — 저장소 구조에 종속
-- **검증 입구 스크립트** (`pnpm verify`, check:env, corepack 핀) — 스택 종속. 단, "공식 검증 입구 하나 + 우회 금지" 패턴 자체는 TODO에 명시
-- **프로젝트 지식 문서** (Study-Plan, Problem-Solving, 부하 테스트 등) — 내용물이지 하네스가 아님
+- **도메인 서브에이전트** (`.claude/agents/` — 백엔드/프론트/리뷰어 등) — 저장소 구조에 종속
+- **검증 입구 스크립트** (예: `pnpm verify`, `make check`) — 스택 종속. 단, "공식 검증 입구 하나 + 우회 금지" 패턴 자체는 TODO에 명시
+- **프로젝트 지식 문서** (학습 계획, 문제 해결 사례, 측정 리포트 등) — 위키의 내용물이지 하네스가 아님
 
 ## 설계 노트
 
-- 코드 repo 쪽 Stop 훅은 자동 커밋하지 **않는다** — LLM이 log.md에 큐레이션된 요약을 쓰고 커밋하게 유도한다(원시 transcript 덤프는 노이즈였다는 realtime-wait 운영 경험 반영). 외부 vault 안에서 직접 작업할 때만 auto-commit 훅이 돈다.
+- 코드 repo 쪽 Stop 훅은 자동 커밋하지 **않는다** — LLM이 log.md에 큐레이션된 요약을 쓰고 커밋하게 유도한다(세션 transcript를 원시 덤프하는 방식은 노이즈만 쌓여서 폐기한 운영 경험 반영). 외부 vault 안에서 직접 작업할 때만 auto-commit 훅이 돈다.
 - SessionStart 주입은 제목 수준만 — 상세는 세션이 필요할 때 위키 정본으로 내려가서 읽는다 (컨텍스트 절약).
 - repo 내장 모드의 Stop 훅은 "코드가 바뀌었는데 오늘 로그가 없다"만 본다 — 위키가 코드와 같은 커밋에 실리므로 push 감시가 필요 없다.
