@@ -17,7 +17,7 @@
           {
             "type": "command",
             "statusMessage": "Committing & pushing wiki...",
-            "command": "[ -d \"$CLAUDE_PROJECT_DIR/.git\" ] || exit 0; git -C \"$CLAUDE_PROJECT_DIR\" add -A 2>/dev/null; if git -C \"$CLAUDE_PROJECT_DIR\" diff --cached --quiet; then exit 0; fi; if git -C \"$CLAUDE_PROJECT_DIR\" commit -q -m \"Auto-sync wiki $(date '+%Y-%m-%d %H:%M')\" && git -C \"$CLAUDE_PROJECT_DIR\" push -q origin main; then echo '{\"systemMessage\":\"✅ LLM-Wiki: auto-committed & pushed\"}'; else echo '{\"systemMessage\":\"⚠️ LLM-Wiki: auto commit/push failed — check git status\"}'; fi; exit 0"
+            "command": "[ -d \"$CLAUDE_PROJECT_DIR/.git\" ] || exit 0; git -C \"$CLAUDE_PROJECT_DIR\" add -A 2>/dev/null; if git -C \"$CLAUDE_PROJECT_DIR\" diff --cached --quiet; then exit 0; fi; if git -C \"$CLAUDE_PROJECT_DIR\" commit -q -m \"Auto-sync wiki $(date '+%Y-%m-%d %H:%M')\" && git -C \"$CLAUDE_PROJECT_DIR\" push -q; then echo '{\"systemMessage\":\"✅ LLM-Wiki: auto-committed & pushed\"}'; else echo '{\"systemMessage\":\"⚠️ LLM-Wiki: auto commit/push failed — check git status\"}'; fi; exit 0"
           }
         ]
       }

@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd \"$CLAUDE_PROJECT_DIR\" || exit 0; [ -f llm-wiki/log.md ] || exit 0; git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0; git diff --quiet HEAD -- . ':(exclude)llm-wiki' 2>/dev/null && exit 0; grep -q \"^## $(date +%F)\" llm-wiki/log.md && exit 0; echo \"코드 변경이 있는데 llm-wiki/log.md에 오늘(## $(date +%F)) 기록이 없습니다. 이번 세션 작업을 log.md에 기록하세요.\"; exit 2",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" || exit 0; [ -f llm-wiki/log.md ] || exit 0; git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0; [ -z \"$(git status --porcelain -- . ':(exclude)llm-wiki' 2>/dev/null)\" ] && exit 0; grep -q \"^## $(date +%F)\" llm-wiki/log.md && exit 0; echo \"코드 변경이 있는데 llm-wiki/log.md에 오늘(## $(date +%F)) 기록이 없습니다. 이번 세션 작업을 log.md에 기록하세요.\"; exit 2",
             "asyncRewake": true,
             "timeout": 15,
             "rewakeSummary": "위키 기록 누락 확인"
