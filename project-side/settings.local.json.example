@@ -1,0 +1,10 @@
+{
+  "env": {
+    "WIKI_ROOT": "__WIKI_ROOT_DEFAULT__"
+  },
+  "permissions": {
+    "additionalDirectories": [
+      "__WIKI_ROOT_DEFAULT__"
+    ]
+  }
+}

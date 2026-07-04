@@ -1,0 +1,29 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "WIKI=\"\"; for d in \"$WIKI_ROOT\" \"__WIKI_ROOT_DEFAULT__\"; do [ -n \"$d\" ] && [ -d \"$d/Projects/__PROJECT_KEY__\" ] && { WIKI=\"$d\"; break; }; done; [ -n \"$WIKI\" ] || exit 0; W=\"$WIKI/Projects/__PROJECT_KEY__\"; D=$(grep -m1 '^## [0-9]' \"$W/log.md\" 2>/dev/null); R=$(awk '/^## [0-9]/{c++} c==1{print} c==2{exit}' \"$W/log.md\" 2>/dev/null | grep '^- \\*\\*' | sed -E 's/^- \\*\\*([^*]+)\\*\\*.*/- \\1/'); O=$(awk '/^## 열린 과제/{f=1;next} /^## /{f=0} f&&/^### /{print}' \"$W/Next-Tasks.md\" 2>/dev/null | sed -E 's/^### /- /'); printf '최근 작업 로그(%s):\\n%s\\n\\n열린 과제:\\n%s' \"$D\" \"$R\" \"$O\" | jq -Rs '{hookSpecificOutput:{hookEventName:\"SessionStart\",additionalContext:(\"[__PROJECT_KEY__ 위키 기억 — 상세 정본은 위키 Projects/__PROJECT_KEY__/ 참조]\\n\\n\"+.)}}'",
+            "timeout": 10,
+            "statusMessage": "위키 기억 불러오는 중..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "WIKI=\"\"; for d in \"$WIKI_ROOT\" \"__WIKI_ROOT_DEFAULT__\"; do [ -n \"$d\" ] && [ -d \"$d/.git\" ] && [ -d \"$d/Projects/__PROJECT_KEY__\" ] && { WIKI=\"$d\"; break; }; done; [ -n \"$WIKI\" ] || exit 0; dirty=$(git -C \"$WIKI\" status --porcelain 2>/dev/null); unpushed=$(git -C \"$WIKI\" log --oneline '@{u}..HEAD' 2>/dev/null); if [ -z \"$dirty\" ] && [ -z \"$unpushed\" ]; then exit 0; fi; echo \"위키에 저장 안 된 변경이 있습니다. 이번 세션 작업을 Projects/__PROJECT_KEY__/log.md에 기록하고 커밋·푸시한 뒤 종료하세요.\"; exit 2",
+            "asyncRewake": true,
+            "timeout": 15,
+            "rewakeSummary": "위키 미저장 변경 확인"
+          }
+        ]
+      }
+    ]
+  }
+}
