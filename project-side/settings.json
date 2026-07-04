@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "WIKI=\"\"; for d in \"$WIKI_ROOT\" \"__WIKI_ROOT_DEFAULT__\"; do [ -n \"$d\" ] && [ -d \"$d/.git\" ] && [ -d \"$d/Projects/__PROJECT_KEY__\" ] && { WIKI=\"$d\"; break; }; done; [ -n \"$WIKI\" ] || exit 0; dirty=$(git -C \"$WIKI\" status --porcelain 2>/dev/null); unpushed=$(git -C \"$WIKI\" log --oneline '@{u}..HEAD' 2>/dev/null); if [ -z \"$dirty\" ] && [ -z \"$unpushed\" ]; then exit 0; fi; echo \"위키에 저장 안 된 변경이 있습니다. 이번 세션 작업을 Projects/__PROJECT_KEY__/log.md에 기록하고 커밋·푸시한 뒤 종료하세요.\"; exit 2",
+            "command": "WIKI=\"\"; for d in \"$WIKI_ROOT\" \"__WIKI_ROOT_DEFAULT__\"; do [ -n \"$d\" ] && [ -d \"$d/.git\" ] && [ -d \"$d/Projects/__PROJECT_KEY__\" ] && { WIKI=\"$d\"; break; }; done; [ -n \"$WIKI\" ] || exit 0; W=\"$WIKI/Projects/__PROJECT_KEY__\"; if git -C \"$CLAUDE_PROJECT_DIR\" rev-parse --is-inside-work-tree >/dev/null 2>&1 && [ -n \"$(git -C \"$CLAUDE_PROJECT_DIR\" status --porcelain 2>/dev/null)\" ] && [ -f \"$W/log.md\" ] && ! grep -q \"^## $(date +%F)\" \"$W/log.md\"; then echo \"코드 변경이 있는데 위키 Projects/__PROJECT_KEY__/log.md에 오늘(## $(date +%F)) 기록이 없습니다. 이번 세션 작업을 log.md에 기록하고 위키를 커밋·푸시한 뒤 종료하세요.\"; exit 2; fi; dirty=$(git -C \"$WIKI\" status --porcelain 2>/dev/null); unpushed=$(git -C \"$WIKI\" log --oneline '@{u}..HEAD' 2>/dev/null); if [ -z \"$dirty\" ] && [ -z \"$unpushed\" ]; then exit 0; fi; echo \"위키에 저장 안 된 변경이 있습니다. 이번 세션 작업을 Projects/__PROJECT_KEY__/log.md에 기록하고 커밋·푸시한 뒤 종료하세요.\"; exit 2",
             "asyncRewake": true,
             "timeout": 15,
             "rewakeSummary": "위키 미저장 변경 확인"

@@ -42,7 +42,7 @@ claude plugin install llm-wiki-harness@llm-wiki-harness --scope user
 | 위키 위치 | 코드 repo 안 `llm-wiki/` | 중앙 Obsidian vault의 `Projects/<key>/` |
 | 버전 관리 | 코드와 함께 커밋 (별도 동기화 없음) | 위키 자체 git (여러 머신·여러 프로젝트 공유) |
 | 추가 설정 | 없음 | `additionalDirectories`(add-dir) + 머신별 `WIKI_ROOT` (settings.local.json) |
-| Stop 훅 | 코드 변경이 있는데 `log.md`에 오늘 기록이 없으면 경고 | 위키에 미커밋/미푸시 변경이 있으면 경고 |
+| Stop 훅 | 코드 변경이 있는데 `log.md`에 오늘 기록이 없으면 경고 | 기록 누락(코드 변경 + 오늘 기록 없음) 또는 위키 미커밋/미푸시 변경이 있으면 경고 |
 | 어울리는 경우 | 단일 repo로 완결, 협업자와 위키 공유 | 이미 중앙 vault 운영, 위키를 코드 repo에 노출하기 싫을 때 |
 | install.sh | `./install.sh --in-repo <key> <repo>` | `./install.sh <key> <repo> <wiki-root>` |
 
