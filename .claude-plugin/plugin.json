@@ -1,0 +1,13 @@
+{
+  "name": "llm-wiki-harness",
+  "displayName": "LLM Wiki Harness",
+  "description": "위키를 LLM 장기 기억으로 쓰는 하네스 설치 — /llm-wiki-init (repo 내장 llm-wiki/ 또는 외부 Obsidian vault)",
+  "author": {
+    "name": "fomula91",
+    "email": "fomula91@gmail.com"
+  },
+  "homepage": "https://github.com/fomula91/llm-wiki-harness",
+  "repository": "https://github.com/fomula91/llm-wiki-harness",
+  "license": "MIT",
+  "keywords": ["wiki", "memory", "harness", "obsidian"]
+}

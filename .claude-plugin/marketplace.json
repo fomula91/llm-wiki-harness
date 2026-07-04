@@ -1,0 +1,15 @@
+{
+  "name": "llm-wiki-harness",
+  "description": "LLM Wiki Harness marketplace",
+  "owner": {
+    "name": "fomula91",
+    "email": "fomula91@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "llm-wiki-harness",
+      "source": "./",
+      "description": "위키를 LLM 장기 기억으로 쓰는 하네스 설치 — /llm-wiki-init"
+    }
+  ]
+}
