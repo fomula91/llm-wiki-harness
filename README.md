@@ -48,8 +48,9 @@ claude plugin install llm-wiki-harness@llm-wiki-harness --scope user
 
 ## 하네스가 하는 일 (두 축)
 
-**코드 repo 쪽** (`project-side/`)
-- `settings.json`(외부 vault) / `settings.in-repo.json`(repo 내장) — 훅 2개:
+**코드 repo 쪽** (`hooks/` + `project-side/`)
+- `hooks/{lib,session-start,stop}.sh` — 훅 본체. install.sh가 대상 repo의 `.claude/hooks/`로 **치환 없이 그대로** 복사하고, `settings.json`은 그 경로만 호출한다. 프로젝트별 설정(키·모드)은 함께 생성되는 `llm-wiki.conf.sh` 한 파일에만 들어간다 — 모드 분기는 훅 안에 있고 설정 파일이 갈리지 않는다.
+- 훅 2개:
   - **SessionStart**: 위키 `log.md` 최신 섹션의 제목들 + `Next-Tasks.md` 열린 과제를 추출해 세션 컨텍스트로 주입 (= 세션이 "지난번까지 무슨 일이 있었는지" 알고 시작)
   - **Stop**: 세션 기록 누락을 exit 2로 경고 → LLM이 세션 작업을 log.md에 기록하고 종료하게 강제 (모드별 감지 방식은 위 표)
 - `CLAUDE.guidelines.md` + `wiki-rules.{external,in-repo}.md` + `CLAUDE.verify-todo.md` — install.sh가 모드에 맞게 조립해 `CLAUDE.md` 생성: 공통 행동 지침(Think Before Coding / Simplicity First / Surgical Changes / Goal-Driven Execution) + 위키 연동 규칙 + **검증 단계 TODO 골격**(프로젝트별 작성)
@@ -68,9 +69,19 @@ claude plugin install llm-wiki-harness@llm-wiki-harness --scope user
 | `log.md` | 날짜 섹션 `## YYYY-MM-DD`, 항목 `- **제목**: 내용`. 최신이 위. 훅은 최신 섹션의 **제목**만 추출 |
 | `Next-Tasks.md` | 열린 과제는 `## 열린 과제` 아래 `### N. 제목`. 훅은 `###` 제목만 추출 |
 
+이 계약은 산문으로만 있지 않다 — `tests/cases/contract.test.sh`가 **실제 템플릿을 실제 파서에 물려** CI에서 강제한다. 템플릿이 드리프트하면 red가 난다.
+
+## 테스트
+
+```bash
+bash tests/run.sh          # 훅·설치·형식 계약 회귀 테스트 (bash + git + jq)
+```
+
+임시 디렉터리에 가짜 코드 repo와 가짜 위키 vault를 만들고, **실제 배포될 훅 파일과 실제 템플릿**을 그대로 물려 돌린다. 발동해야 할 때 발동하는지뿐 아니라, **발동하면 안 될 때 조용한지**(무관한 vault 변경, 위키 미설치, `jq` 부재)를 같은 비중으로 검사한다 — 오탐이 쌓이면 사용자가 훅을 꺼버리기 때문이다. GitHub Actions에서 Linux·macOS 양쪽으로 돈다.
+
 ## 요구사항
 
-- `jq` (SessionStart 기억 주입 훅이 사용)
+- `jq` (SessionStart 기억 주입 훅이 사용 — 없으면 훅이 조용히 건너뛴다)
 - 외부 vault 모드: git remote가 설정된 위키 repo. 위키 경로는 머신마다 다르므로 각 머신의 `.claude/settings.local.json`(git 미커밋)에서 `env.WIKI_ROOT`로 지정 — 훅은 `$WIKI_ROOT` → 설치 시 구운 기본 경로 순으로 위키를 찾는다.
 
 ## 하네스에 포함하지 않은 것 (프로젝트별로 만들 것)
@@ -87,3 +98,6 @@ claude plugin install llm-wiki-harness@llm-wiki-harness --scope user
 - 코드 repo 쪽 Stop 훅은 자동 커밋하지 **않는다** — LLM이 log.md에 큐레이션된 요약을 쓰고 커밋하게 유도한다(세션 transcript를 원시 덤프하는 방식은 노이즈만 쌓여서 폐기한 운영 경험 반영). 외부 vault 안에서 직접 작업할 때만 auto-commit 훅이 돈다.
 - SessionStart 주입은 제목 수준만 — 상세는 세션이 필요할 때 위키 정본으로 내려가서 읽는다 (컨텍스트 절약).
 - repo 내장 모드의 Stop 훅은 "코드가 바뀌었는데 오늘 로그가 없다"만 본다 — 위키가 코드와 같은 커밋에 실리므로 push 감시가 필요 없다.
+- 훅은 JSON 안에 인라인된 한 줄 셸이 아니라 **별도 `.sh` 파일**로 배포한다. 읽고·디버깅하고·테스트할 수 있어야 하네스의 강제력을 증명할 수 있고, 테스트가 검증하는 파일과 배포본이 바이트 단위로 같아야 그 증명이 유효하다.
+- 외부 vault 모드의 Stop 훅은 vault 전체가 아니라 **이 프로젝트의 `Projects/<key>/`만** 미저장 검사한다. vault는 여러 프로젝트가 공유하고 `.obsidian/`은 상시 변하므로, 전체를 보면 무관한 변경으로 매 세션 오탐이 난다.
+- 위키 경로의 단일 출처는 `.claude/settings.local.json`의 `env.WIKI_ROOT` 하나다 — 커밋되는 파일에는 머신 절대경로가 들어가지 않는다. 못 찾으면 세션 시작 시 원인을 알려준다.

@@ -44,6 +44,7 @@ bash <boilerplate>/install.sh <project-key> <현재 repo 루트> <wiki-root>
 ## 4. 병합 처리 (기존 설정이 있던 경우만)
 
 - `.claude/settings.harness.json`이 생겼으면: 기존 `.claude/settings.json`에 hooks(SessionStart/Stop)를 병합하고 harness 파일을 삭제한다. 기존 훅은 유지하고 배열에 추가한다.
+- **구버전 마이그레이션**: 기존 `.claude/settings.json`의 hooks에 위키 파싱 셸이 **한 줄로 인라인된** llm-wiki 훅(`command` 문자열 안에 `log.md`·`Next-Tasks.md`·`Projects/` 같은 문자열이 직접 박혀 있는 형태)이 있으면, 그 인라인 블록을 **제거하고** `bash "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"` / `.../stop.sh` 호출로 교체한다. 두 벌이 함께 남으면 훅이 이중 발동한다. llm-wiki와 무관한 다른 훅은 절대 건드리지 않는다.
 - `CLAUDE.harness.md`가 생겼으면: 기존 `CLAUDE.md`에 "LLM-WIKI 연동 규칙" 섹션과 (없다면) "검증 단계" 골격을 추가 병합하고 harness 파일을 삭제한다. 기존 내용은 건드리지 않는다.
 
 ## 5. 마무리 (install.sh가 안내한 수동 단계를 직접 수행)
@@ -68,3 +69,4 @@ repo 내장 모드 추가:
 
 - 어떤 기존 파일도 덮어쓰지 마라. 충돌은 병합으로 푼다.
 - `log.md`·`Next-Tasks.md`의 형식 계약(`## YYYY-MM-DD` / `- **제목**:` / `## 열린 과제` / `### N.`)은 훅이 파싱한다 — 템플릿 형식을 유지하라.
+- `.claude/hooks/`의 `lib.sh`·`session-start.sh`·`stop.sh`는 하네스가 소유한다. 재설치 때 덮어써지므로 여기에 프로젝트별 수정을 넣지 마라 — 프로젝트별 값은 `llm-wiki.conf.sh`에만 둔다.
