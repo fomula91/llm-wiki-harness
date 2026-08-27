@@ -24,10 +24,13 @@ TODAY="$(date +%F)"
 
 command -v jq >/dev/null || echo "⚠️  jq가 없습니다. SessionStart 기억 주입 훅이 jq를 사용합니다 — 'brew install jq' 권장."
 
+# sed 치환값 이스케이프: 구분자 |, 백슬래시, & (치환문에서 매치 전체로 확장된다)
+sed_escape() { printf '%s' "$1" | sed -e 's/[\\&|]/\\&/g'; }
+
 render() { # render <src> <dst>
-  sed -e "s|__PROJECT_KEY__|$KEY|g" \
-      -e "s|__WIKI_ROOT_DEFAULT__|$WIKI|g" \
-      -e "s|__DATE__|$TODAY|g" "$1" > "$2"
+  sed -e "s|__PROJECT_KEY__|$(sed_escape "$KEY")|g" \
+      -e "s|__WIKI_ROOT_DEFAULT__|$(sed_escape "$WIKI")|g" \
+      -e "s|__DATE__|$(sed_escape "$TODAY")|g" "$1" > "$2"
   echo "  생성: $2"
 }
 
@@ -35,7 +38,7 @@ render_claude_md() { # render_claude_md <rules-variant> <dst>
   { cat "$HERE/project-side/CLAUDE.guidelines.md"; printf '\n---\n\n'; \
     cat "$HERE/project-side/$1"; printf '\n---\n\n'; \
     cat "$HERE/project-side/CLAUDE.verify-todo.md"; } \
-    | sed -e "s|__PROJECT_KEY__|$KEY|g" -e "s|__DATE__|$TODAY|g" > "$2"
+    | sed -e "s|__PROJECT_KEY__|$(sed_escape "$KEY")|g" -e "s|__DATE__|$(sed_escape "$TODAY")|g" > "$2"
   echo "  생성: $2"
 }
 
@@ -50,6 +53,26 @@ copy_skeleton() { # copy_skeleton <dst-dir>
       render "$HERE/wiki-side/project-template/$f" "$DST/$f"
     fi
   done
+}
+
+# 훅 스크립트는 치환 없이 그대로 복사한다 — tests/가 검증하는 파일과 배포본이 같아야 한다.
+# 프로젝트별 설정은 llm-wiki.conf.sh 하나에만 들어간다. 재설치 시 덮어써서 최신 훅으로 올린다.
+copy_hooks() { # copy_hooks <dst .claude dir>
+  local D="$1/hooks"
+  mkdir -p "$D"
+  local f
+  for f in lib.sh session-start.sh stop.sh; do
+    cp "$HERE/hooks/$f" "$D/$f"
+    chmod +x "$D/$f"
+    echo "  생성: $D/$f"
+  done
+  cat > "$D/llm-wiki.conf.sh" <<EOF
+# LLM-WIKI 하네스 설정 — install.sh가 생성한다. 훅 스크립트가 읽는 유일한 설정 파일.
+# 위키 경로는 여기 두지 않는다: 머신별 경로의 단일 출처는 .claude/settings.local.json 의 env.WIKI_ROOT.
+PROJECT_KEY="$KEY"
+WIKI_MODE="$MODE"
+EOF
+  echo "  생성: $D/llm-wiki.conf.sh"
 }
 
 if [ "$MODE" = external ]; then
@@ -70,22 +93,23 @@ if [ "$MODE" = external ]; then
   else
     cp "$HERE/wiki-side/settings.json" "$WIKI/.claude/settings.json"; echo "  생성: $WIKI/.claude/settings.json"
   fi
-  SETTINGS_SRC="$HERE/project-side/settings.json"
   RULES=wiki-rules.external.md
 else
   echo "── 1. repo 내장 위키: llm-wiki/ 스켈레톤"
   copy_skeleton "$REPO/llm-wiki"
-  SETTINGS_SRC="$HERE/project-side/settings.in-repo.json"
   RULES=wiki-rules.in-repo.md
 fi
 
 echo "── 3. 코드 repo 쪽: 훅 + CLAUDE.md"
 mkdir -p "$REPO/.claude"
+copy_hooks "$REPO/.claude"
 if [ -e "$REPO/.claude/settings.json" ]; then
-  render "$SETTINGS_SRC" "$REPO/.claude/settings.harness.json"
+  cp "$HERE/project-side/settings.json" "$REPO/.claude/settings.harness.json"
+  echo "  생성: $REPO/.claude/settings.harness.json"
   echo "  ⚠️  settings.json이 이미 있어 settings.harness.json으로 생성 — hooks 블록을 수동 병합하세요."
 else
-  render "$SETTINGS_SRC" "$REPO/.claude/settings.json"
+  cp "$HERE/project-side/settings.json" "$REPO/.claude/settings.json"
+  echo "  생성: $REPO/.claude/settings.json"
 fi
 if [ "$MODE" = external ]; then
   render "$HERE/project-side/settings.local.json.example" "$REPO/.claude/settings.local.json.example"
@@ -105,6 +129,7 @@ if [ "$MODE" = external ]; then
   cat <<EOF
 1. $REPO/.claude/settings.local.json.example 을 settings.local.json 으로 복사
    (머신별 WIKI_ROOT env + additionalDirectories — git 커밋 안 됨. 다른 머신에서는 경로만 수정)
+   ※ 이 파일이 없으면 훅이 위키를 찾지 못하고 세션 시작 시 경고만 뜹니다.
 2. $REPO/CLAUDE.md 의 "검증 단계" TODO 섹션을 이 프로젝트에 맞게 작성
 3. 위키 $WIKI/Projects/$KEY/Context.md 채우기 + 루트 index.md에 프로젝트 링크 추가
 4. 위키 변경 커밋·푸시 (다른 머신과 동기화)
