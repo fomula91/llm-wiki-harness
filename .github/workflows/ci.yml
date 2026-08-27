@@ -1,0 +1,41 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    # 훅은 macOS와 Linux 양쪽에서 돈다. BSD/GNU 의 sed·awk·date 차이가
+    # 기억 주입을 조용히 깨뜨릴 수 있으므로 두 곳 모두에서 돌린다.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install jq (macOS)
+        if: runner.os == 'macOS'
+        run: brew list jq >/dev/null 2>&1 || brew install jq
+
+      - name: Validate JSON
+        run: |
+          for f in $(git ls-files '*.json'); do
+            jq -e . "$f" >/dev/null || { echo "::error::invalid JSON: $f"; exit 1; }
+          done
+
+      - name: Run tests
+        run: bash tests/run.sh
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: shellcheck
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          shellcheck -x --severity=warning \
+            install.sh hooks/*.sh tests/run.sh tests/lib.sh tests/cases/*.test.sh
