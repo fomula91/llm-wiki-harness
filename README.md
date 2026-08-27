@@ -21,6 +21,12 @@ claude plugin install llm-wiki-harness@llm-wiki-harness --scope user
 
 설치하면 `/llm-wiki-init` 커맨드가 생긴다 (충돌 시 네임스페이스 형태 `/llm-wiki-harness:llm-wiki-init`).
 
+### 이미 쓰고 있다면 (0.2.0 업그레이드)
+
+플러그인을 업데이트해도 **이미 초기화한 프로젝트의 훅은 갱신되지 않는다** — 훅은 `/llm-wiki-init` 시점에 그 프로젝트로 복사된 사본이기 때문이다. 0.2.0의 버그 수정을 받으려면 **프로젝트마다 `/llm-wiki-init`을 다시 실행한다.**
+
+재실행하면 `install.sh`가 기존 `.claude/settings.json`에서 구버전 인라인 훅을 **직접 찾아 제거하고** 현행 스크립트 호출로 교체한 완성본을 `.claude/settings.harness.json`에 만든다. llm-wiki와 무관한 훅·설정은 그대로 보존된다. 내용을 확인한 뒤 `settings.json`으로 교체하면 된다.
+
 > 플러그인 없이 쓰려면: `commands/llm-wiki-init.md`를 `~/.claude/commands/`에 복사하거나, repo를 clone해 `install.sh`를 직접 실행해도 된다.
 
 ## 사용

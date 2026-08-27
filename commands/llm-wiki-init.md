@@ -43,8 +43,8 @@ bash <boilerplate>/install.sh <project-key> <현재 repo 루트> <wiki-root>
 
 ## 4. 병합 처리 (기존 설정이 있던 경우만)
 
-- `.claude/settings.harness.json`이 생겼으면: 기존 `.claude/settings.json`에 hooks(SessionStart/Stop)를 병합하고 harness 파일을 삭제한다. 기존 훅은 유지하고 배열에 추가한다.
-- **구버전 마이그레이션**: 기존 `.claude/settings.json`의 hooks에 위키 파싱 셸이 **한 줄로 인라인된** llm-wiki 훅(`command` 문자열 안에 `log.md`·`Next-Tasks.md`·`Projects/` 같은 문자열이 직접 박혀 있는 형태)이 있으면, 그 인라인 블록을 **제거하고** `bash "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"` / `.../stop.sh` 호출로 교체한다. 두 벌이 함께 남으면 훅이 이중 발동한다. llm-wiki와 무관한 다른 훅은 절대 건드리지 않는다.
+- `.claude/settings.harness.json`이 생겼으면: **이미 병합이 끝난 완성본이다.** install.sh가 기존 settings.json에서 구버전 인라인 llm-wiki 훅을 제거하고 현행 스크립트 호출을 붙였으며, llm-wiki와 무관한 훅·설정은 보존했다. 직접 병합하지 말고 내용을 확인한 뒤 `settings.json`으로 교체하고 harness 파일을 삭제한다.
+  - jq가 없는 환경에서는 자동 병합이 되지 않고 harness 파일에 현행 훅만 들어간다. 그때만 수동 병합하며, 구버전 인라인 llm-wiki 훅(`command` 안에 `log.md`·`Next-Tasks.md`·`Projects/`가 직접 박힌 형태)을 반드시 **제거**한다 — 두 벌이 남으면 훅이 이중 발동한다.
 - `CLAUDE.harness.md`가 생겼으면: 기존 `CLAUDE.md`에 "LLM-WIKI 연동 규칙" 섹션과 (없다면) "검증 단계" 골격을 추가 병합하고 harness 파일을 삭제한다. 기존 내용은 건드리지 않는다.
 
 ## 5. 마무리 (install.sh가 안내한 수동 단계를 직접 수행)
