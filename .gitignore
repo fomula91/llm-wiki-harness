@@ -1,0 +1,4 @@
+.DS_Store
+*.local.json
+!*.local.json.example
+tests/.tmp/
