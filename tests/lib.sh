@@ -29,6 +29,13 @@ run_hook() { # run_hook <script-path> — 호출 전에 필요한 env를 export 
 	RC=$?
 }
 
+# 특정 도구가 없는 PATH로 훅을 돌린다 (무음 실패 경로 검증용).
+# bash 자체는 절대경로로 넘긴다 — PATH를 갈아끼우면 bash도 못 찾는다.
+run_hook_with_path() { # run_hook_with_path <path-value> <script-path>
+	OUT="$(PATH="$1" "$(command -v bash)" "$2" 2>/dev/null)"
+	RC=$?
+}
+
 assert_rc() { # assert_rc <expected> <desc>
 	if [ "$RC" = "$1" ]; then ok "$2"; else bad "$2" "exit $RC (기대 $1)"; fi
 }

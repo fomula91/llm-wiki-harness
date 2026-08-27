@@ -68,8 +68,7 @@ assert_out_empty "위키 없으면 아무것도 출력하지 않는다"
 mkdir -p "$repo/llm-wiki" && printf '# Log\n\n## 2026-08-27\n- **x**: y\n' >"$repo/llm-wiki/log.md"
 nojq="$(mktemp -d "$TMPROOT/nojq.XXXXXX")"
 ln -s "$(command -v dirname)" "$nojq/dirname"
-OUT="$(PATH="$nojq" "$(command -v bash)" "$H/session-start.sh" 2>/dev/null)"
-RC=$?
+run_hook_with_path "$nojq" "$H/session-start.sh"
 assert_rc 0 "jq 없으면 exit 0"
 assert_out_empty "jq 없으면 깨진 출력을 뱉지 않는다"
 
