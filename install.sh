@@ -75,6 +75,33 @@ EOF
   echo "  생성: $D/llm-wiki.conf.sh"
 }
 
+# 구버전(인라인 셸) 훅과 현행(스크립트 호출) 훅을 모두 알아보는 마커.
+# 재실행이 중복을 만들지 않도록 양쪽 다 걷어내고 새로 붙인다.
+HARNESS_HOOK_RE='llm-wiki|Next-Tasks\.md|log\.md|\.claude/hooks/(session-start|stop)\.sh'
+
+count_harness_hooks() { # count_harness_hooks <settings.json>
+  jq --arg re "$HARNESS_HOOK_RE" '
+    [ (.hooks // {}) | to_entries[] | .value[]? | (.hooks // [])[]?
+      | select((.command // "") | test($re)) ] | length
+  ' "$1" 2>/dev/null || echo 0
+}
+
+# 기존 settings.json에서 llm-wiki 훅만 걷어내고 현행 훅을 붙인 완성본을 만든다.
+# 다른 훅과 다른 최상위 키는 그대로 보존한다.
+merge_settings() { # merge_settings <existing> <out>
+  jq -s --arg re "$HARNESS_HOOK_RE" '
+    def is_harness: (.command // "") | test($re);
+    .[0] as $cur | .[1] as $new |
+    (($cur.hooks // {}) | with_entries(
+       .value |= ( map(.hooks |= map(select(is_harness | not)))
+                 | map(select(((.hooks // []) | length) > 0)) )
+     )) as $clean |
+    $cur | .hooks = ( $clean
+      | .SessionStart = (($clean.SessionStart // []) + $new.hooks.SessionStart)
+      | .Stop         = (($clean.Stop // [])         + $new.hooks.Stop) )
+  ' "$1" "$HERE/project-side/settings.json" > "$2"
+}
+
 if [ "$MODE" = external ]; then
   [ -d "$WIKI/.git" ] || echo "⚠️  $WIKI 가 git repo가 아닙니다. 자동 pull/push·미저장 감지 훅은 git 기반입니다."
 
@@ -104,9 +131,20 @@ echo "── 3. 코드 repo 쪽: 훅 + CLAUDE.md"
 mkdir -p "$REPO/.claude"
 copy_hooks "$REPO/.claude"
 if [ -e "$REPO/.claude/settings.json" ]; then
-  cp "$HERE/project-side/settings.json" "$REPO/.claude/settings.harness.json"
-  echo "  생성: $REPO/.claude/settings.harness.json"
-  echo "  ⚠️  settings.json이 이미 있어 settings.harness.json으로 생성 — hooks 블록을 수동 병합하세요."
+  if command -v jq >/dev/null 2>&1; then
+    OLD_N="$(count_harness_hooks "$REPO/.claude/settings.json")"
+    merge_settings "$REPO/.claude/settings.json" "$REPO/.claude/settings.harness.json"
+    echo "  생성: $REPO/.claude/settings.harness.json"
+    if [ "${OLD_N:-0}" -gt 0 ]; then
+      echo "  ⚠️  구버전 llm-wiki 훅 ${OLD_N}개를 감지해 제거하고 현행 훅으로 교체한 결과입니다."
+    else
+      echo "  ⚠️  settings.json이 이미 있어 병합 결과를 별도 파일로 만들었습니다."
+    fi
+    echo "     llm-wiki 외의 훅과 설정은 그대로 보존됩니다 — 확인 후 settings.json으로 교체하세요."
+  else
+    cp "$HERE/project-side/settings.json" "$REPO/.claude/settings.harness.json"
+    echo "  ⚠️  jq가 없어 자동 병합을 못 했습니다 — settings.harness.json의 hooks를 수동 병합하세요."
+  fi
 else
   cp "$HERE/project-side/settings.json" "$REPO/.claude/settings.json"
   echo "  생성: $REPO/.claude/settings.json"
