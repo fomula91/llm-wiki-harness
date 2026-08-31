@@ -8,11 +8,11 @@
 . "$(dirname "$0")/../lib.sh"
 
 repo="$(mk_repo)"
-install_hooks "$repo" testproj in-repo
+install_conf "$repo" testproj in-repo
 copy_template "$repo/llm-wiki" testproj "$(date +%F)"
 export CLAUDE_PROJECT_DIR="$repo"
 
-run_hook "$repo/.claude/hooks/session-start.sh"
+run_hook "$HOOKS/session-start.sh"
 assert_rc 0 "배포 템플릿 그대로 exit 0"
 assert_json "배포 템플릿에서 유효 JSON이 나온다"
 

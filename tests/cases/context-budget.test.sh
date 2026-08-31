@@ -8,7 +8,7 @@
 
 # ── 1. SessionStart 주입 상한 ───────────────────────────────────────────────
 repo="$(mk_repo)"
-install_hooks "$repo" testproj in-repo
+install_conf "$repo" testproj in-repo
 export CLAUDE_PROJECT_DIR="$repo"
 mkdir -p "$repo/llm-wiki"
 
@@ -22,7 +22,7 @@ mkdir -p "$repo/llm-wiki"
 	for i in $(seq 1 20); do printf -- '### %d. 과제%02d\n' "$i" "$i"; done
 } >"$repo/llm-wiki/Next-Tasks.md"
 
-run_hook "$repo/.claude/hooks/session-start.sh"
+run_hook "$HOOKS/session-start.sh"
 assert_rc 0 "상한을 넘겨도 exit 0"
 assert_json "상한을 넘겨도 유효 JSON"
 assert_ctx_has "로그01" "상한 안의 로그는 주입된다"
@@ -38,18 +38,18 @@ assert_ctx_has "llm-wiki/log.md" "나머지를 어디서 읽는지 알려준다"
 # 상한 이하면 안내 줄이 붙지 않는다 (오탐 방지)
 write_log "$repo/llm-wiki/log.md" 2026-08-27 짧은로그
 printf '# 다음 과제\n\n## 열린 과제\n\n### 1. 짧은과제\n' >"$repo/llm-wiki/Next-Tasks.md"
-run_hook "$repo/.claude/hooks/session-start.sh"
+run_hook "$HOOKS/session-start.sh"
 assert_ctx_has "짧은로그" "상한 이하면 그대로 주입된다"
 assert_ctx_lacks "…외" "상한 이하면 잘림 안내를 붙이지 않는다"
 
 # 프로젝트가 conf.sh 로 상한을 조정할 수 있다
 printf 'PROJECT_KEY="testproj"\nWIKI_MODE="in-repo"\nINJECT_MAX_LOG=2\n' \
-	>"$repo/.claude/hooks/llm-wiki.conf.sh"
+	>"$repo/.claude/llm-wiki.conf.sh"
 {
 	printf '# Log\n\n## 2026-08-27\n'
 	for i in 1 2 3 4; do printf -- '- **조정%02d**: 본문\n' "$i"; done
 } >"$repo/llm-wiki/log.md"
-run_hook "$repo/.claude/hooks/session-start.sh"
+run_hook "$HOOKS/session-start.sh"
 assert_ctx_has "조정02" "conf.sh 의 상한이 적용된다"
 assert_ctx_lacks "조정03" "conf.sh 의 상한을 넘으면 잘린다"
 

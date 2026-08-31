@@ -8,32 +8,5 @@
       "Read(./.next/**)",
       "Read(./.cache/**)"
     ]
-  },
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh\"",
-            "timeout": 10,
-            "statusMessage": "위키 기억 불러오는 중..."
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/stop.sh\"",
-            "asyncRewake": true,
-            "timeout": 15,
-            "rewakeSummary": "위키 기록 확인"
-          }
-        ]
-      }
-    ]
   }
 }

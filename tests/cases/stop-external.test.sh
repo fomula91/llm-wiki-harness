@@ -9,13 +9,13 @@ TODAY="$(date +%F)"
 new_case() { # new_case <log-date> — repo/vault 를 전역에 세팅
 	repo="$(mk_repo)"
 	vault="$(mk_vault testproj)"
-	install_hooks "$repo" testproj external
+	install_conf "$repo" testproj external
 	write_log "$vault/Projects/testproj/log.md" "$1" "이전작업"
 	git -C "$vault" add -A
 	git -C "$vault" commit -qm log
 	git -C "$vault" push -q
 	export CLAUDE_PROJECT_DIR="$repo" WIKI_ROOT="$vault"
-	HOOK="$repo/.claude/hooks/stop.sh"
+	HOOK="$HOOKS/stop.sh"
 }
 
 # 코드 변경 + 오늘 기록 없음 → 막는다

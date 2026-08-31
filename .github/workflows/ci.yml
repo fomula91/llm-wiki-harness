@@ -38,4 +38,4 @@ jobs:
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
           shellcheck -x --severity=warning \
-            install.sh hooks/*.sh tests/run.sh tests/lib.sh tests/cases/*.test.sh
+            install.sh migrate.sh hooks/*.sh tests/run.sh tests/lib.sh tests/cases/*.test.sh

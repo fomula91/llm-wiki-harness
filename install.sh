@@ -73,19 +73,14 @@ copy_skeleton() { # copy_skeleton <dst-dir>
   done
 }
 
-# 훅 스크립트는 치환 없이 그대로 복사한다 — tests/가 검증하는 파일과 배포본이 같아야 한다.
-# 프로젝트별 설정은 llm-wiki.conf.sh 하나에만 들어간다. 재설치 시 덮어써서 최신 훅으로 올린다.
-copy_hooks() { # copy_hooks <dst .claude dir>
-  local D="$1/hooks"
-  mkdir -p "$D"
-  local f
-  for f in lib.sh session-start.sh stop.sh; do
-    cp "$HERE/hooks/$f" "$D/$f"
-    chmod +x "$D/$f"
-    echo "  생성: $D/$f"
-  done
-  cat > "$D/llm-wiki.conf.sh" <<EOF
-# LLM-WIKI 하네스 설정 — install.sh가 생성한다. 훅 스크립트가 읽는 유일한 설정 파일.
+# 훅 본체는 프로젝트로 복사하지 않는다 — 플러그인 안에서 그대로 실행된다(hooks/hooks.json).
+# 프로젝트에 남는 것은 이 설정 파일 하나뿐이고, 그 존재가 "여기 하네스가 설치됨"의 표식이다.
+# 사본이 없으므로 플러그인을 업데이트하면 모든 프로젝트가 즉시 최신 훅을 쓴다.
+write_conf() { # write_conf <dst .claude dir>
+  mkdir -p "$1"
+  cat > "$1/llm-wiki.conf.sh" <<EOF
+# LLM-WIKI 하네스 설정 — install.sh가 생성한다. 플러그인 훅이 읽는 유일한 설정 파일이며,
+# 이 파일이 있어야 훅이 이 프로젝트에서 동작한다(없으면 훅은 조용히 빠진다).
 # 위키 경로는 여기 두지 않는다: 머신별 경로의 단일 출처는 .claude/settings.local.json 의 env.WIKI_ROOT.
 PROJECT_KEY="$KEY"
 WIKI_MODE="$MODE"
@@ -95,11 +90,19 @@ WIKI_MODE="$MODE"
 INJECT_MAX_LOG=10
 INJECT_MAX_TASKS=8
 EOF
-  echo "  생성: $D/llm-wiki.conf.sh"
+  echo "  생성: $1/llm-wiki.conf.sh"
 }
 
-# 구버전(인라인 셸) 훅과 현행(스크립트 호출) 훅을 모두 알아보는 마커.
-# 재실행이 중복을 만들지 않도록 양쪽 다 걷어내고 새로 붙인다.
+# 구버전(0.4.0 이하)이 프로젝트에 심어 둔 훅 사본. 지우지는 않는다 —
+# 그 사본을 가리키는 settings.json 을 사용자가 아직 교체하지 않았을 수 있고,
+# 없는 파일을 호출하면 매 세션 에러가 난다. 교체 후 지우도록 안내만 한다.
+legacy_hooks_dir() { # legacy_hooks_dir <repo>
+  [ -f "$1/.claude/hooks/llm-wiki.conf.sh" ] || [ -f "$1/.claude/hooks/session-start.sh" ]
+}
+
+# 프로젝트 settings.json 에 남아 있는 llm-wiki 훅을 알아보는 마커.
+# 0.2.0 이전의 인라인 셸과 0.5.0 이전의 스크립트 사본 호출을 모두 잡는다 —
+# 훅은 이제 플러그인이 제공하므로 둘 다 걷어내기만 하면 된다.
 HARNESS_HOOK_RE='llm-wiki|Next-Tasks\.md|log\.md|\.claude/hooks/(session-start|stop)\.sh'
 
 count_harness_hooks() { # count_harness_hooks <settings.json>
@@ -109,7 +112,7 @@ count_harness_hooks() { # count_harness_hooks <settings.json>
   ' "$1" 2>/dev/null || echo 0
 }
 
-# 기존 settings.json에서 llm-wiki 훅만 걷어내고 현행 훅을 붙인 완성본을 만든다.
+# 기존 settings.json에서 llm-wiki 훅을 걷어내고 생성물 읽기 차단을 더한 완성본을 만든다.
 # 다른 훅과 다른 최상위 키는 그대로 보존한다.
 merge_settings() { # merge_settings <existing> <out>
   jq -s --arg re "$HARNESS_HOOK_RE" '
@@ -118,10 +121,11 @@ merge_settings() { # merge_settings <existing> <out>
     (($cur.hooks // {}) | with_entries(
        .value |= ( map(.hooks |= map(select(is_harness | not)))
                  | map(select(((.hooks // []) | length) > 0)) )
-     )) as $clean |
-    $cur | .hooks = ( $clean
-      | .SessionStart = (($clean.SessionStart // []) + $new.hooks.SessionStart)
-      | .Stop         = (($clean.Stop // [])         + $new.hooks.Stop) )
+     ) | with_entries(select((.value | length) > 0))) as $clean |
+    $cur
+    # 훅 엔트리는 더하지 않는다 — 훅은 이제 플러그인이 제공한다(hooks/hooks.json).
+    # 구버전이 남긴 호출만 걷어내고, 그래서 비게 된 이벤트 키는 지운다.
+    | (if ($clean | length) > 0 then .hooks = $clean else del(.hooks) end)
     # 생성물 읽기 차단은 합집합으로 더한다 — 사용자가 추가한 deny 규칙을 지우지 않는다.
     | .permissions = ( (.permissions // {})
       | .deny = ( ((.deny // []) + ($new.permissions.deny // [])) | unique ) )
@@ -153,23 +157,23 @@ else
   RULES=wiki-rules.in-repo.md
 fi
 
-echo "── 3. 코드 repo 쪽: 훅 + CLAUDE.md"
+echo "── 3. 코드 repo 쪽: 설정 + CLAUDE.md"
 mkdir -p "$REPO/.claude"
-copy_hooks "$REPO/.claude"
+write_conf "$REPO/.claude"
 if [ -e "$REPO/.claude/settings.json" ]; then
   if command -v jq >/dev/null 2>&1; then
     OLD_N="$(count_harness_hooks "$REPO/.claude/settings.json")"
     merge_settings "$REPO/.claude/settings.json" "$REPO/.claude/settings.harness.json"
     echo "  생성: $REPO/.claude/settings.harness.json"
     if [ "${OLD_N:-0}" -gt 0 ]; then
-      echo "  ⚠️  구버전 llm-wiki 훅 ${OLD_N}개를 감지해 제거하고 현행 훅으로 교체한 결과입니다."
+      echo "  ⚠️  settings.json의 llm-wiki 훅 ${OLD_N}개를 제거한 결과입니다 — 훅은 이제 플러그인이 제공합니다."
     else
       echo "  ⚠️  settings.json이 이미 있어 병합 결과를 별도 파일로 만들었습니다."
     fi
     echo "     llm-wiki 외의 훅과 설정은 그대로 보존됩니다 — 확인 후 settings.json으로 교체하세요."
   else
     cp "$HERE/project-side/settings.json" "$REPO/.claude/settings.harness.json"
-    echo "  ⚠️  jq가 없어 자동 병합을 못 했습니다 — settings.harness.json의 hooks를 수동 병합하세요."
+    echo "  ⚠️  jq가 없어 자동 병합을 못 했습니다 — settings.harness.json을 참고해 수동 병합하세요."
   fi
 else
   cp "$HERE/project-side/settings.json" "$REPO/.claude/settings.json"
@@ -187,6 +191,18 @@ fi
 
 echo ""
 echo "✅ 설치 완료: $KEY ($MODE 모드)"
+echo ""
+echo "ℹ️  훅 본체는 플러그인 안에서 실행됩니다 — 프로젝트에는 llm-wiki.conf.sh 만 남습니다."
+echo "   앞으로는 플러그인만 업데이트하면 모든 프로젝트가 최신 훅을 씁니다."
+if legacy_hooks_dir "$REPO"; then
+  echo ""
+  echo "⚠️  구버전 훅 사본이 남아 있습니다: $REPO/.claude/hooks/"
+  echo "   이 디렉터리가 남아 있는 동안 플러그인 훅은 물러섭니다(이중 발동 방지) — 즉 지금은 훅이 돌지 않습니다."
+  echo "   다음 한 줄이 나머지를 순서대로 처리하고 결과를 검증합니다:"
+  echo "       bash $HERE/migrate.sh $REPO"
+  echo "   손으로 한다면: ① settings.json을 병합본으로 교체 → ② .claude/hooks/ 삭제 (순서 필수)."
+  echo "   자세한 내용: $HERE/MIGRATION.md"
+fi
 echo ""
 echo "ℹ️  settings.json 의 permissions.deny 가 생성물(node_modules·dist·build·coverage·.next·.cache)"
 echo "   읽기를 막아 컨텍스트 낭비를 줄입니다. 이 프로젝트에서 읽어야 하는 경로가 있으면 지우세요."

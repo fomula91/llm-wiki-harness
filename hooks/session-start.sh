@@ -9,6 +9,9 @@ HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib.sh
 . "$HOOK_DIR/lib.sh"
 
+# 하네스를 설치하지 않은 프로젝트 — 플러그인 훅은 모든 프로젝트에서 돌므로 여기서 빠진다.
+harness_installed || exit 0
+
 # jq가 없으면 유효한 훅 JSON을 만들 수 없다. 깨진 출력을 뱉느니 조용히 빠진다.
 command -v jq >/dev/null 2>&1 || exit 0
 

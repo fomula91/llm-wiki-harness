@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # 테스트 공용 — assert 헬퍼 + 픽스처 빌더
 #
-# 픽스처는 실제 배포 레이아웃(.claude/hooks/ + llm-wiki.conf.sh)과 실제 템플릿
-# (wiki-side/project-template/)을 그대로 쓴다. 테스트용 사본을 따로 두면
-# 그 사본만 통과하고 배포본은 깨질 수 있다.
+# 훅은 플러그인 안에서 실행되므로($HOOKS) 테스트도 사본을 만들지 않고 그 파일을 그대로
+# 돌린다 — 검증 대상과 배포본이 같은 파일이라 드리프트할 여지가 없다.
+# 프로젝트에는 실제 배포와 똑같이 .claude/llm-wiki.conf.sh 하나만 심는다.
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+HOOKS="$ROOT/hooks"   # 플러그인이 실행하는 바로 그 훅 (${CLAUDE_PLUGIN_ROOT}/hooks)
 TMPROOT="$ROOT/tests/.tmp"
 mkdir -p "$TMPROOT"
 
@@ -79,11 +80,11 @@ mk_repo() { # mk_repo -> 경로 출력. 커밋된 가짜 코드 repo
 	printf '%s' "$d"
 }
 
-# 실제 훅 3종 + conf.sh 를 대상 repo에 배포 레이아웃 그대로 심는다
-install_hooks() { # install_hooks <repo> <key> <mode>
-	mkdir -p "$1/.claude/hooks"
-	cp "$ROOT/hooks/lib.sh" "$ROOT/hooks/session-start.sh" "$ROOT/hooks/stop.sh" "$1/.claude/hooks/"
-	printf 'PROJECT_KEY="%s"\nWIKI_MODE="%s"\n' "$2" "$3" >"$1/.claude/hooks/llm-wiki.conf.sh"
+# 하네스가 설치된 프로젝트를 만든다 = conf.sh 하나를 심는다.
+# 이 파일의 존재가 훅에게 "여기서 동작하라"는 유일한 신호다.
+install_conf() { # install_conf <repo> <key> <mode>
+	mkdir -p "$1/.claude"
+	printf 'PROJECT_KEY="%s"\nWIKI_MODE="%s"\n' "$2" "$3" >"$1/.claude/llm-wiki.conf.sh"
 }
 
 # 실제 템플릿을 렌더해 위키 디렉터리를 만든다 (계약 테스트의 근거)
@@ -107,6 +108,31 @@ mk_vault() { # mk_vault <key> -> 경로 출력. upstream(bare remote)까지 붙�
 	git -C "$d" commit -qm init
 	git -C "$d" remote add origin "$bare"
 	git -C "$d" push -q -u origin main
+	printf '%s' "$d"
+}
+
+# 0.4.0 시절 레이아웃의 프로젝트를 만든다 — 훅 사본 + 그것을 부르는 settings.json.
+# 사본의 내용은 중요하지 않다: 마이그레이션은 파일의 **존재**와 settings.json 의 호출로
+# 상태를 판단하고, 이 사본을 실행하지 않는다. 그래서 자리만 채운다
+# (실제 구버전 파일을 git 에서 꺼내면 태그를 안 받는 CI 체크아웃에서 조용히 달라진다).
+mk_legacy_repo() { # mk_legacy_repo <key> [mode] -> 경로 출력
+	local d f key="$1" mode="${2:-in-repo}"
+	d="$(mk_repo)"
+	mkdir -p "$d/.claude/hooks"
+	for f in lib.sh session-start.sh stop.sh; do
+		printf '#!/usr/bin/env bash\n# 0.4.0 시절 훅 사본 (테스트 픽스처 — 실행되지 않는다)\nexit 0\n' \
+			>"$d/.claude/hooks/$f"
+	done
+	printf 'PROJECT_KEY="%s"\nWIKI_MODE="%s"\n' "$key" "$mode" >"$d/.claude/hooks/llm-wiki.conf.sh"
+	cat >"$d/.claude/settings.json" <<'JSON'
+{
+  "hooks": {
+    "SessionStart": [ { "hooks": [ { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh\"" } ] } ],
+    "Stop": [ { "hooks": [ { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/stop.sh\"" } ] } ],
+    "PreToolUse": [ { "matcher": "Bash", "hooks": [ { "type": "command", "command": "echo 남의훅" } ] } ]
+  }
+}
+JSON
 	printf '%s' "$d"
 }
 

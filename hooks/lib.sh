@@ -1,17 +1,35 @@
 #!/usr/bin/env bash
 # LLM-WIKI 하네스 — 훅 공용 라이브러리
 #
-# 이 파일은 install.sh가 대상 repo의 .claude/hooks/ 로 **치환 없이 그대로** 복사한다.
-# 테스트가 검증하는 파일과 배포되는 파일이 바이트 단위로 같아야 테스트가 실제 배포본을
-# 증명하므로, 이 스크립트들에는 __PLACEHOLDER__를 쓰지 않는다.
-# 프로젝트별 설정은 같은 디렉터리의 llm-wiki.conf.sh 하나에만 있다.
+# 이 파일은 **플러그인 안에서 그대로 실행된다** (hooks/hooks.json 이 ${CLAUDE_PLUGIN_ROOT}
+# 로 호출). 프로젝트로 복사하지 않으므로 사본이 낡을 일이 없다 — 플러그인을 업데이트하면
+# 모든 프로젝트가 같은 훅을 쓴다. 프로젝트별 값은 그 프로젝트의
+# .claude/llm-wiki.conf.sh 하나에만 있다.
+#
+# 플러그인 훅은 하네스를 설치하지 않은 프로젝트에서도 실행된다. 그래서 conf.sh 의 존재가
+# "이 프로젝트에 하네스가 설치됨"의 유일한 표식이고, 없으면 각 훅이 즉시 조용히 빠진다.
 #
 # 훅은 어떤 경우에도 세션을 망가뜨리면 안 된다 — 판단 근거가 없으면 조용히 exit 0.
 
-HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONF=""
+LEGACY_CONF=""
+if [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
+	CONF="$CLAUDE_PROJECT_DIR/.claude/llm-wiki.conf.sh"
+	LEGACY_CONF="$CLAUDE_PROJECT_DIR/.claude/hooks/llm-wiki.conf.sh"
+fi
+
+# 이 프로젝트에 하네스가 설치되어 있는가. 각 훅의 첫 관문이다.
+#
+# 구버전(0.5.0 이전) 훅 사본이 아직 남아 있으면 물러선다. 마이그레이션 도중에는
+# settings.json 이 그 사본을 계속 호출하고 있을 수 있고, 그러면 두 벌이 함께 돌아
+# 기억이 두 번 주입되고 Stop 이 이중으로 막는다. 잠깐 꺼지는 편이 두 번 도는 것보다 낫다 —
+# 사본 디렉터리를 지우는 순간 플러그인 훅이 인계받는다.
+harness_installed() {
+	[ -n "$CONF" ] && [ -f "$CONF" ] && [ ! -f "$LEGACY_CONF" ]
+}
 
 # shellcheck source=/dev/null
-[ -f "$HOOK_DIR/llm-wiki.conf.sh" ] && . "$HOOK_DIR/llm-wiki.conf.sh"
+harness_installed && . "$CONF"
 
 PROJECT_KEY="${PROJECT_KEY:-}"
 WIKI_MODE="${WIKI_MODE:-in-repo}"

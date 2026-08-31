@@ -9,6 +9,8 @@ HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib.sh
 . "$HOOK_DIR/lib.sh"
 
+harness_installed || exit 0
+
 TODAY="$(date +%F)"
 
 W="$(resolve_wiki)" || exit 0

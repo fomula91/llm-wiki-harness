@@ -1,0 +1,30 @@
+{
+  "description": "LLM-WIKI 하네스 — 세션 시작에 위키 기억 주입, 종료 전 기록 누락 감지",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh\"",
+            "timeout": 10,
+            "statusMessage": "위키 기억 불러오는 중..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/stop.sh\"",
+            "asyncRewake": true,
+            "timeout": 15,
+            "rewakeSummary": "위키 기록 확인"
+          }
+        ]
+      }
+    ]
+  }
+}
