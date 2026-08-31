@@ -6,7 +6,10 @@
 # 프로젝트에는 실제 배포와 똑같이 .claude/llm-wiki.conf.sh 하나만 심는다.
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-HOOKS="$ROOT/hooks"   # 플러그인이 실행하는 바로 그 훅 (${CLAUDE_PLUGIN_ROOT}/hooks)
+# 플러그인이 실행하는 바로 그 훅 (${CLAUDE_PLUGIN_ROOT}/hooks). 케이스 파일들이 쓴다 —
+# shellcheck 은 파일 단위로 보므로 여기서는 미사용으로 보인다.
+# shellcheck disable=SC2034
+HOOKS="$ROOT/hooks"
 TMPROOT="$ROOT/tests/.tmp"
 mkdir -p "$TMPROOT"
 
