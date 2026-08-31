@@ -34,12 +34,30 @@ render() { # render <src> <dst>
   echo "  생성: $2"
 }
 
+# CLAUDE.md 는 세션의 **매 턴** 다시 전송된다 — 여기서 100토큰은 30턴 세션에서 3,000토큰이다.
+# 그래서 크기를 설치 때 눈에 보이게 만들고 상한을 둔다.
+CLAUDE_MD_BUDGET=1500
+
+# 대략의 토큰 추정: ASCII 4바이트당 1토큰, 그 외(한글 등) 3바이트당 1토큰.
+# 정확한 토크나이저가 아니라 "커졌는지"를 보는 눈금이다 — 문자 단위 처리는 BSD/GNU awk 에서
+# 멀티바이트 동작이 갈리므로, 어디서나 같은 값이 나오도록 바이트만 센다.
+estimate_tokens() { # estimate_tokens <file>
+  local total ascii
+  total=$(wc -c <"$1")
+  ascii=$(LC_ALL=C tr -dc '\000-\177' <"$1" | wc -c)
+  echo $(( ascii / 4 + (total - ascii) / 3 ))
+}
+
 render_claude_md() { # render_claude_md <rules-variant> <dst>
   { cat "$HERE/project-side/CLAUDE.guidelines.md"; printf '\n---\n\n'; \
     cat "$HERE/project-side/$1"; printf '\n---\n\n'; \
     cat "$HERE/project-side/CLAUDE.verify-todo.md"; } \
     | sed -e "s|__PROJECT_KEY__|$(sed_escape "$KEY")|g" -e "s|__DATE__|$(sed_escape "$TODAY")|g" > "$2"
-  echo "  생성: $2"
+  local n; n=$(estimate_tokens "$2")
+  echo "  생성: $2  (컨텍스트 예산 ~${n}/${CLAUDE_MD_BUDGET}토큰 — 매 턴 전송됨)"
+  if [ "$n" -gt "$CLAUDE_MD_BUDGET" ]; then
+    echo "  ⚠️  CLAUDE.md가 예산을 넘습니다. 상세 설명은 위키로 옮기고 여기엔 링크만 남기세요."
+  fi
 }
 
 copy_skeleton() { # copy_skeleton <dst-dir>
@@ -71,6 +89,11 @@ copy_hooks() { # copy_hooks <dst .claude dir>
 # 위키 경로는 여기 두지 않는다: 머신별 경로의 단일 출처는 .claude/settings.local.json 의 env.WIKI_ROOT.
 PROJECT_KEY="$KEY"
 WIKI_MODE="$MODE"
+
+# 세션 시작에 주입할 최대 건수. 주입은 그 세션의 매 턴 다시 전송되므로 상한이 곧 비용 상한이다.
+# 넘치는 만큼은 "…외 N건"으로 알리고, 세션이 필요할 때 위키를 직접 읽는다.
+INJECT_MAX_LOG=10
+INJECT_MAX_TASKS=8
 EOF
   echo "  생성: $D/llm-wiki.conf.sh"
 }
@@ -99,6 +122,9 @@ merge_settings() { # merge_settings <existing> <out>
     $cur | .hooks = ( $clean
       | .SessionStart = (($clean.SessionStart // []) + $new.hooks.SessionStart)
       | .Stop         = (($clean.Stop // [])         + $new.hooks.Stop) )
+    # 생성물 읽기 차단은 합집합으로 더한다 — 사용자가 추가한 deny 규칙을 지우지 않는다.
+    | .permissions = ( (.permissions // {})
+      | .deny = ( ((.deny // []) + ($new.permissions.deny // [])) | unique ) )
   ' "$1" "$HERE/project-side/settings.json" > "$2"
 }
 
@@ -161,6 +187,9 @@ fi
 
 echo ""
 echo "✅ 설치 완료: $KEY ($MODE 모드)"
+echo ""
+echo "ℹ️  settings.json 의 permissions.deny 가 생성물(node_modules·dist·build·coverage·.next·.cache)"
+echo "   읽기를 막아 컨텍스트 낭비를 줄입니다. 이 프로젝트에서 읽어야 하는 경로가 있으면 지우세요."
 echo ""
 echo "남은 수동 단계:"
 if [ "$MODE" = external ]; then

@@ -43,7 +43,7 @@ bash <boilerplate>/install.sh <project-key> <현재 repo 루트> <wiki-root>
 
 ## 4. 병합 처리 (기존 설정이 있던 경우만)
 
-- `.claude/settings.harness.json`이 생겼으면: **이미 병합이 끝난 완성본이다.** install.sh가 기존 settings.json에서 구버전 인라인 llm-wiki 훅을 제거하고 현행 스크립트 호출을 붙였으며, llm-wiki와 무관한 훅·설정은 보존했다. 직접 병합하지 말고 내용을 확인한 뒤 `settings.json`으로 교체하고 harness 파일을 삭제한다.
+- `.claude/settings.harness.json`이 생겼으면: **이미 병합이 끝난 완성본이다.** install.sh가 기존 settings.json에서 구버전 인라인 llm-wiki 훅을 제거하고 현행 스크립트 호출을 붙였으며, llm-wiki와 무관한 훅·설정은 보존했다. 직접 병합하지 말고 내용을 확인한 뒤 `settings.json`으로 교체하고 harness 파일을 삭제한다. 이 병합본에는 생성물 읽기 차단(`permissions.deny`)도 합집합으로 들어간다 — 기존 deny 규칙은 보존된다.
   - jq가 없는 환경에서는 자동 병합이 되지 않고 harness 파일에 현행 훅만 들어간다. 그때만 수동 병합하며, 구버전 인라인 llm-wiki 훅(`command` 안에 `log.md`·`Next-Tasks.md`·`Projects/`가 직접 박힌 형태)을 반드시 **제거**한다 — 두 벌이 남으면 훅이 이중 발동한다.
 - `CLAUDE.harness.md`가 생겼으면: 기존 `CLAUDE.md`에 "LLM-WIKI 연동 규칙" 섹션과 (없다면) "검증 단계" 골격을 추가 병합하고 harness 파일을 삭제한다. 기존 내용은 건드리지 않는다.
 
@@ -51,22 +51,23 @@ bash <boilerplate>/install.sh <project-key> <현재 repo 루트> <wiki-root>
 
 공통:
 
-1. `CLAUDE.md`의 "검증 단계" TODO — 저장소를 훑어(package.json scripts·Makefile·CI 워크플로) **변경 종류 → 실행할 검증** 표 초안을 작성하고 사용자에게 검토받는다. 공식 검증 입구 명령이 없으면 그 사실을 알린다.
+1. `CLAUDE.md`의 "검증 단계" TODO — 저장소를 훑어(package.json scripts·Makefile·CI 워크플로) **변경 종류 → 실행할 검증** 표 초안을 작성하고 사용자에게 검토받는다. 공식 검증 입구 명령이 없으면 그 사실을 알린다. 표는 간결하게 쓴다 — CLAUDE.md는 매 턴 전송되고, install.sh가 컨텍스트 예산 초과를 경고한다. 경고가 떴으면 상세를 위키로 옮기고 CLAUDE.md에는 링크만 남긴다.
 2. 위키 `Context.md`를 저장소 README·구조를 근거로 초안 작성한다 (무엇을 만드는가 / 스택·구조 / 지금 단계).
 3. 사용자에게 알린다: **훅은 다음 세션 시작부터 적용된다** (지금 세션은 재시작 필요).
+4. `.claude/settings.json`의 `permissions.deny`(생성물 읽기 차단)를 이 프로젝트 기준으로 훑는다. 읽어야 하는 경로가 막혀 있으면 해당 줄을 지우고 사용자에게 알린다.
 
 repo 내장 모드 추가:
 
-4. `llm-wiki/`와 `.claude/`를 코드와 함께 커밋한다 (커밋 여부는 사용자에게 확인).
+5. `llm-wiki/`와 `.claude/`를 코드와 함께 커밋한다 (커밋 여부는 사용자에게 확인).
 
 외부 vault 모드 추가:
 
-4. `.claude/settings.local.json.example`을 `.claude/settings.local.json`으로 복사한다. 이미 있으면 `env.WIKI_ROOT`와 `permissions.additionalDirectories`(위키 경로)만 병합한다. 이 파일이 git에 커밋되지 않는지 확인한다(.gitignore).
-5. 위키 루트 `index.md`에 프로젝트 링크를 추가한다.
-6. 위키를 커밋·푸시한다 (커밋 메시지 예: `harness: <key> 프로젝트 초기화`).
+5. `.claude/settings.local.json.example`을 `.claude/settings.local.json`으로 복사한다. 이미 있으면 `env.WIKI_ROOT`와 `permissions.additionalDirectories`(위키 경로)만 병합한다. 이 파일이 git에 커밋되지 않는지 확인한다(.gitignore).
+6. 위키 루트 `index.md`에 프로젝트 링크를 추가한다.
+7. 위키를 커밋·푸시한다 (커밋 메시지 예: `harness: <key> 프로젝트 초기화`).
 
 ## 주의
 
 - 어떤 기존 파일도 덮어쓰지 마라. 충돌은 병합으로 푼다.
 - `log.md`·`Next-Tasks.md`의 형식 계약(`## YYYY-MM-DD` / `- **제목**:` / `## 열린 과제` / `### N.`)은 훅이 파싱한다 — 템플릿 형식을 유지하라.
-- `.claude/hooks/`의 `lib.sh`·`session-start.sh`·`stop.sh`는 하네스가 소유한다. 재설치 때 덮어써지므로 여기에 프로젝트별 수정을 넣지 마라 — 프로젝트별 값은 `llm-wiki.conf.sh`에만 둔다.
+- `.claude/hooks/`의 `lib.sh`·`session-start.sh`·`stop.sh`는 하네스가 소유한다. 재설치 때 덮어써지므로 여기에 프로젝트별 수정을 넣지 마라 — 프로젝트별 값은 `llm-wiki.conf.sh`에만 둔다. 주입 건수 상한(`INJECT_MAX_LOG`·`INJECT_MAX_TASKS`)도 이 파일에서 조정한다.

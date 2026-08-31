@@ -60,8 +60,16 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
----
+## 5. Context Economy
 
-**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+**The cheapest token is the one you never send. Context is billed per turn, not per session.**
+
+- Name the target files up front. Don't survey the repo when the task already names its scope.
+- Read ranges, not files: locate with `grep -n`, then read the surrounding block.
+- Keep tool output small: quiet flags on test/install commands, `git diff --stat` before a full diff, `tail`/`grep` on logs.
+- One logical task per session; `/compact` or `/clear` before starting the next one.
+- Send cheap work (commit messages, summaries, mechanical renames) to a cheaper model.
+
+Everything that stays in this file is re-sent on every turn — keep detail in the wiki and link to it.
 
 ---
