@@ -30,13 +30,15 @@ bash <harness>/migrate.sh --scan <root>
 - `none` — 하네스 미설치. 마이그레이션할 것이 없다. 설치를 원하는지 물어보고 원하면 `/llm-wiki-init`을 안내한다.
 - `current` — 이미 현행. 할 일 없음을 알리고 끝낸다.
 - `legacy` / `off` — 아래로 진행한다. `off`는 **지금 훅이 하나도 돌지 않는 상태**임을 사용자에게 분명히 알린다.
+- `inline` — 0.2.0 이전이라 키·모드가 어디에도 없어 **추론**한다. `--check`가 보여준 추론값(`key=` / `mode=` / `wiki=`)을 사용자에게 그대로 보여주고 **맞는지 확인받은 뒤**에만 `--yes`로 실행한다. 틀리면 `PROJECT_KEY=... WIKI_MODE=... [WIKI_ROOT=...] bash <harness>/migrate.sh --yes <repo>`.
 
 ## 2. 수행
 
 여러 개면 대상 목록을 사용자에게 보여주고 확인받은 뒤 실행한다.
 
 ```bash
-bash <harness>/migrate.sh <repo>...
+bash <harness>/migrate.sh <repo>...         # legacy / off
+bash <harness>/migrate.sh --yes <repo>...   # inline (추론값 확인을 받은 뒤에만)
 ```
 
 이 스크립트가 순서대로 처리한다: ① `install.sh` 재실행(키·모드는 기존 conf.sh에서 읽음) → ② `settings.json` 교체(원본은 `.bak`) → ③ `.claude/hooks/` 삭제 → ④ 결과 검증.

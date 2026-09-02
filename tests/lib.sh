@@ -139,6 +139,30 @@ JSON
 	printf '%s' "$d"
 }
 
+# 0.2.0 이전 레이아웃 — conf.sh 도 .claude/hooks/ 도 없고 훅이 settings.json 안에 인라인.
+# 이 세대는 파일명으로 찾을 수 없어서 실제로 스캔에서 통째로 누락됐었다.
+# 훅 문자열은 그 시절 install.sh 가 넣던 형태를 그대로 흉내 낸다(키·모드가 어디에도 없다).
+mk_inline_repo() { # mk_inline_repo <key> [mode] [vault] -> 경로 출력
+	local d key="$1" mode="${2:-in-repo}" vault="${3:-}" cmd
+	d="$(mk_repo)"
+	mkdir -p "$d/.claude"
+	if [ "$mode" = external ]; then
+		# 위키 경로가 훅 안에 하드코딩돼 있던 시절 (0.2.0 이 고친 바로 그 형태)
+		cmd="WIKI=\"\"; for p in \"\$WIKI_ROOT\" /nonexistent/vault $vault; do [ -d \"\$p/Projects/$key\" ] && WIKI=\"\$p\"; done; grep -m1 '^## [0-9]' \"\$WIKI/Projects/$key/log.md\""
+	else
+		mkdir -p "$d/llm-wiki"
+		printf '# %s — Index\n' "$key" >"$d/llm-wiki/index.md"
+		printf '# Log\n\n## %s\n- **기존기록**: 본문\n' "$(date +%F)" >"$d/llm-wiki/log.md"
+		cmd="W=\"\$CLAUDE_PROJECT_DIR/llm-wiki\"; [ -d \"\$W\" ] || exit 0; grep -m1 '^## [0-9]' \"\$W/log.md\"; awk '/^## 열린 과제/' \"\$W/Next-Tasks.md\""
+	fi
+	jq -n --arg c "$cmd" '{hooks:{
+		SessionStart:[{hooks:[{type:"command",command:$c}]}],
+		Stop:[{hooks:[{type:"command",command:$c}]}],
+		PreToolUse:[{matcher:"Bash",hooks:[{type:"command",command:"echo 남의훅"}]}]
+	}}' >"$d/.claude/settings.json"
+	printf '%s' "$d"
+}
+
 summary() { # 각 케이스 파일 끝에서 호출
 	printf '  → %d passed, %d failed\n' "$PASS" "$FAIL"
 	[ "$FAIL" -eq 0 ]

@@ -110,4 +110,56 @@ else ok "위키 경로를 못 찾으면 실패로 끝난다"; fi
 case "$(bash "$M" "$ext2" 2>&1 || true)" in *WIKI_ROOT*) ok "무엇을 주면 되는지 알려준다" ;;
 *) bad "무엇을 주면 되는지 알려준다" "$(bash "$M" "$ext2" 2>&1 || true)" ;; esac
 
+# ── 6. 0.2.0 이전(인라인) 세대 ──────────────────────────────────────────────
+# 이 세대는 conf.sh 가 없어 파일명으로는 찾을 수 없다. 실제로 사용자 머신의 프로젝트
+# 5개가 전부 이 세대였고 --scan 이 "찾지 못했습니다"라고 답했다 — 그 누락을 여기서 고정한다.
+inl="$(mk_inline_repo demo-inline)"
+state_is "$inl" inline "인라인 훅만 있어도 하네스로 인식한다 (conf.sh 없음)"
+
+case "$(bash "$M" --check "$inl")" in
+*"key=demo-inline"*"mode=in-repo"*) ok "인라인 세대의 키·모드를 추론해 보여준다" ;;
+*) bad "인라인 세대의 키·모드를 추론해 보여준다" "$(bash "$M" --check "$inl")" ;;
+esac
+
+# 스캔이 찾아야 한다 (여기가 이번 결함의 핵심)
+nest2="$(mktemp -d "$TMPROOT/scan2.XXXXXX")"
+i2="$(mk_inline_repo scanned-inline)"; mv "$i2" "$nest2/i"
+case "$(bash "$M" --scan "$nest2")" in
+*"$nest2/i"*) ok "스캔이 인라인 세대를 찾는다" ;;
+*) bad "스캔이 인라인 세대를 찾는다" "$(bash "$M" --scan "$nest2")" ;;
+esac
+
+# 추론값으로는 확인 없이 진행하지 않는다 — 키를 잘못 짚으면 엉뚱한 위키가 생긴다
+if bash "$M" "$inl" >/dev/null 2>&1; then
+	bad "확인 없이는 인라인 마이그레이션을 진행하지 않는다" "성공으로 끝남"
+else ok "확인 없이는 인라인 마이그레이션을 진행하지 않는다"; fi
+if [ -f "$inl/.claude/llm-wiki.conf.sh" ]; then
+	bad "거부했으면 아무것도 바꾸지 않는다" "conf.sh 가 생김"
+else ok "거부했으면 아무것도 바꾸지 않는다"; fi
+
+# --yes 면 진행하고, 인라인 훅이 사라진다
+bash "$M" --yes "$inl" >/dev/null 2>&1 || true
+state_is "$inl" current "--yes 면 인라인 → current 로 넘어간다"
+if grep -q 'Next-Tasks\.md' "$inl/.claude/settings.json" 2>/dev/null; then
+	bad "인라인 훅이 settings.json 에서 제거된다" "아직 있음"
+else ok "인라인 훅이 settings.json 에서 제거된다"; fi
+if [ "$(jq -r '.hooks.PreToolUse[0].hooks[0].command' "$inl/.claude/settings.json")" = "echo 남의훅" ]; then
+	ok "인라인 마이그레이션도 무관한 훅을 보존한다"
+else bad "인라인 마이그레이션도 무관한 훅을 보존한다" "$(jq -c '.hooks' "$inl/.claude/settings.json")"; fi
+
+# external 인라인: 위키 경로가 훅 안에 하드코딩돼 있던 시절 → 거기서 되찾아야 한다
+vault2="$(mk_vault extinline)"
+exi="$(mk_inline_repo extinline external "$vault2")"
+case "$(bash "$M" --check "$exi")" in
+*"mode=external"*"wiki=$vault2"*) ok "external 인라인은 훅에 박힌 경로에서 vault 를 되찾는다" ;;
+*) bad "external 인라인은 훅에 박힌 경로에서 vault 를 되찾는다" "$(bash "$M" --check "$exi")" ;;
+esac
+bash "$M" --yes "$exi" >/dev/null 2>&1 || true
+state_is "$exi" current "external 인라인도 current 로 넘어간다"
+
+# conf.sh 는 생겼는데 인라인 훅이 남은 절반 상태 = 이중 발동 → inline 으로 잡아 다시 처리한다
+dup="$(mk_inline_repo dup-inline)"
+install_conf "$dup" dup-inline in-repo
+state_is "$dup" inline "conf.sh 가 있어도 인라인 훅이 남았으면 current 로 보지 않는다"
+
 summary

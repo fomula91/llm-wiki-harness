@@ -28,6 +28,7 @@ claude plugin install llm-wiki-harness@llm-wiki-harness --scope user
 
 **0.5.0부터 훅은 플러그인 안에서 실행된다.** 프로젝트로 복사되지 않으므로, 앞으로는 **플러그인만 업데이트하면 모든 프로젝트가 즉시 최신 훅을 쓴다.** 프로젝트별 재실행은 더 이상 필요 없다.
 
+- **0.5.2** — `migrate.sh`가 0.2.0 이전(인라인 훅) 설치를 인식한다. 그전에는 이 세대가 `--scan`에 잡히지 않고 `none`으로 오답했다. 낡은 프로젝트가 있는데 스캔이 비었다면 이 버전으로 다시 훑을 것.
 - **0.5.1** — 빌드 수정만. 동작 변화 없으므로 0.5.0에서 올 때 할 일이 없다.
 - **0.5.0** — 훅 배포 방식 전환. 프로젝트에는 `.claude/llm-wiki.conf.sh` 하나만 남는다. **이번 한 번은 프로젝트마다 `/llm-wiki-init`을 다시 실행해야 한다** — 아래 마이그레이션 참조.
 - **0.4.0** — 컨텍스트 비용 규율(주입 건수 상한, CLAUDE.md 예산 계측, 생성물 읽기 차단).
@@ -40,6 +41,7 @@ claude plugin install llm-wiki-harness@llm-wiki-harness --scope user
 ```bash
 ./migrate.sh --scan ~/projects   # 어디가 낡았는지 본다 (아무것도 건드리지 않음)
 ./migrate.sh <repo>              # 넘긴다 (순서대로 수행하고 결과를 검증한다)
+./migrate.sh --yes <repo>        # 0.2.0 이전이라 키·모드를 추론해야 하는 경우
 ```
 
 절차·상태·롤백·문제 해결은 **[MIGRATION.md](MIGRATION.md)** 에 있다. 한 가지만 여기 옮겨 둔다.
