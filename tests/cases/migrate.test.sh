@@ -176,9 +176,12 @@ if [ "$(jq -r '.env.WIKI_ROOT // empty' "$loc" 2>/dev/null)" = "$vault2" ]; then
 else bad "external 마이그레이션이 settings.local.json 에 WIKI_ROOT 를 심는다" "$(cat "$loc" 2>/dev/null)"; fi
 
 # 실제 세션 조건(그 WIKI_ROOT)에서 주입이 되는가 — 심어 놓고 안 도는 것이 가장 나쁘다
-W="$(jq -r '.env.WIKI_ROOT' "$loc")"
-OUT="$(WIKI_ROOT="$W" CLAUDE_PROJECT_DIR="$exi" bash "$HOOKS/session-start.sh" 2>/dev/null)"
+WIKI_ROOT="$(jq -r '.env.WIKI_ROOT' "$loc")"; export WIKI_ROOT
+export CLAUDE_PROJECT_DIR="$exi"
+run_hook "$HOOKS/session-start.sh"
 assert_ctx_has "하네스 설치" "심어 둔 WIKI_ROOT 로 실제 주입이 된다"
+# 이후 추론 테스트가 이 값을 주워 엉뚱한 vault 를 고르지 않도록 되돌린다
+unset WIKI_ROOT
 
 # 기존 settings.local.json 의 다른 설정은 보존한다
 exi2="$(mk_inline_repo keepext external "$(mk_vault keepext)")"
