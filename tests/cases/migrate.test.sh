@@ -61,6 +61,17 @@ if grep -q '\.claude/hooks/' "$leg/.claude/settings.json"; then
 	bad "settings.json 에서 사본 호출이 사라진다" "아직 있음"
 else ok "settings.json 에서 사본 호출이 사라진다"; fi
 
+# install.sh 가 곁들여 만든 파일을 알리는가 — 말 안 하면 프로젝트에 파일이 조용히 는다
+lo="$(mk_legacy_repo leftover)"
+mkdir -p "$lo/llm-wiki"; printf '# Log\n\n## %s\n- **x**: y\n' "$(date +%F)" >"$lo/llm-wiki/log.md"
+echo "기존 프로젝트 지침" >"$lo/CLAUDE.md"
+case "$(bash "$M" "$lo" 2>&1)" in
+*"함께 생성됨"*CLAUDE.harness.md*) ok "곁들여 생성된 파일을 알린다" ;;
+*) bad "곁들여 생성된 파일을 알린다" "$(bash "$M" "$lo" 2>&1 | tail -3)" ;;
+esac
+if grep -q "기존 프로젝트 지침" "$lo/CLAUDE.md"; then ok "기존 CLAUDE.md 는 그대로 둔다"
+else bad "기존 CLAUDE.md 는 그대로 둔다" "덮어써짐"; fi
+
 # 인계가 실제로 일어났는가 — 플러그인 훅이 이 프로젝트에서 주입한다
 export CLAUDE_PROJECT_DIR="$leg"
 run_hook "$HOOKS/session-start.sh"
@@ -156,6 +167,32 @@ case "$(bash "$M" --check "$exi")" in
 esac
 bash "$M" --yes "$exi" >/dev/null 2>&1 || true
 state_is "$exi" current "external 인라인도 current 로 넘어간다"
+
+# 구버전 훅은 위키 경로를 자기 안에 하드코딩해 뒀지만 현행 훅은 $WIKI_ROOT 만 본다.
+# 마이그레이션이 그 값을 심어 두지 않으면 하네스가 조용히 죽는다 (실사용에서 실제로 겪음).
+loc="$exi/.claude/settings.local.json"
+if [ "$(jq -r '.env.WIKI_ROOT // empty' "$loc" 2>/dev/null)" = "$vault2" ]; then
+	ok "external 마이그레이션이 settings.local.json 에 WIKI_ROOT 를 심는다"
+else bad "external 마이그레이션이 settings.local.json 에 WIKI_ROOT 를 심는다" "$(cat "$loc" 2>/dev/null)"; fi
+
+# 실제 세션 조건(그 WIKI_ROOT)에서 주입이 되는가 — 심어 놓고 안 도는 것이 가장 나쁘다
+W="$(jq -r '.env.WIKI_ROOT' "$loc")"
+OUT="$(WIKI_ROOT="$W" CLAUDE_PROJECT_DIR="$exi" bash "$HOOKS/session-start.sh" 2>/dev/null)"
+assert_ctx_has "하네스 설치" "심어 둔 WIKI_ROOT 로 실제 주입이 된다"
+
+# 기존 settings.local.json 의 다른 설정은 보존한다
+exi2="$(mk_inline_repo keepext external "$(mk_vault keepext)")"
+mkdir -p "$exi2/.claude"
+echo '{"env":{"OTHER":"keep"},"permissions":{"additionalDirectories":["/somewhere"]}}' >"$exi2/.claude/settings.local.json"
+bash "$M" --yes "$exi2" >/dev/null 2>&1 || true
+loc2="$exi2/.claude/settings.local.json"
+if [ "$(jq -r '.env.OTHER // empty' "$loc2" 2>/dev/null)" = keep ] &&
+	[ -n "$(jq -r '.env.WIKI_ROOT // empty' "$loc2" 2>/dev/null)" ]; then
+	ok "settings.local.json 의 기존 env·경로 설정을 보존하며 WIKI_ROOT 만 더한다"
+else bad "settings.local.json 의 기존 env·경로 설정을 보존하며 WIKI_ROOT 만 더한다" "$(cat "$loc2" 2>/dev/null)"; fi
+if [ "$(jq -r '[.permissions.additionalDirectories[] | select(. == "/somewhere")] | length' "$loc2")" = 1 ]; then
+	ok "기존 additionalDirectories 항목이 남는다"
+else bad "기존 additionalDirectories 항목이 남는다" "$(jq -c '.permissions' "$loc2")"; fi
 
 # conf.sh 는 생겼는데 인라인 훅이 남은 절반 상태 = 이중 발동 → inline 으로 잡아 다시 처리한다
 dup="$(mk_inline_repo dup-inline)"

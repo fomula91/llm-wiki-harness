@@ -186,6 +186,31 @@ migrate_one() { # migrate_one <repo>
   fi
   echo "  ① conf.sh 생성 (key=$key mode=$mode)"
 
+  # external 모드의 위키 경로는 settings.local.json 의 env.WIKI_ROOT 하나가 단일 출처다.
+  # 구버전 훅은 경로를 자기 안에 하드코딩해 뒀으므로 이 파일 없이도 돌았지만, 현행 훅은
+  # $WIKI_ROOT 만 본다 — 여기서 심어 두지 않으면 마이그레이션이 하네스를 조용히 죽인다.
+  # (실제로 realtime-wait 가 env 없이 additionalDirectories 만 가진 상태였다.)
+  if [ "$mode" = external ]; then
+    local loc="$repo/.claude/settings.local.json"
+    if command -v jq >/dev/null 2>&1; then
+      if [ -f "$loc" ]; then
+        if [ "$(jq -r '.env.WIKI_ROOT // empty' "$loc" 2>/dev/null)" = "$wiki" ]; then
+          echo "  ①' WIKI_ROOT 이미 설정됨"
+        else
+          jq --arg w "$wiki" '.env = ((.env // {}) | .WIKI_ROOT = $w)
+            | .permissions = ((.permissions // {}) | .additionalDirectories = (((.additionalDirectories // []) + [$w]) | unique))' \
+            "$loc" >"$loc.tmp" && mv "$loc.tmp" "$loc"
+          echo "  ①' settings.local.json 에 WIKI_ROOT 주입 (기존 설정 보존)"
+        fi
+      else
+        printf '{\n  "env": { "WIKI_ROOT": "%s" },\n  "permissions": { "additionalDirectories": ["%s"] }\n}\n' "$wiki" "$wiki" >"$loc"
+        echo "  ①' settings.local.json 생성 (WIKI_ROOT)"
+      fi
+    else
+      echo "  ⚠ jq 가 없어 settings.local.json 에 WIKI_ROOT 를 넣지 못했습니다 — 수동 설정 필요"
+    fi
+  fi
+
   # ② settings.json 교체 — 사람이 가장 자주 멈추는 지점이라 자동으로 넘긴다. 원본은 남긴다.
   if [ -f "$repo/.claude/settings.harness.json" ]; then
     bak="$repo/.claude/settings.json.bak"
@@ -201,6 +226,16 @@ migrate_one() { # migrate_one <repo>
   echo "  ③ 구버전 훅 사본 삭제"
 
   verify "$repo"
+  local vrc=$?
+
+  # install.sh 가 곁들여 만든 파일을 알린다. 이 스크립트가 그 출력을 삼키므로
+  # 말해 주지 않으면 사용자는 프로젝트에 파일이 늘어난 줄 모른다.
+  local f leftovers=""
+  for f in CLAUDE.harness.md .claude/settings.local.json.example; do
+    [ -e "$repo/$f" ] && leftovers="$leftovers $f"
+  done
+  [ -n "$leftovers" ] && echo "  ℹ 함께 생성됨:$leftovers (기존 파일은 덮지 않았습니다 — 확인 후 병합하거나 지우세요)"
+  return $vrc
 }
 
 # 끝났다고 말하기 전에 실제로 끝났는지 본다.
@@ -221,11 +256,19 @@ verify() { # verify <repo>
   fi
   echo "  ✓ 신버전 상태"
 
-  # 훅이 실제로 무언가를 주입하는지까지 본다 (위키가 비어 있으면 주입이 없는 게 정상).
+  # 훅이 실제로 무언가를 주입하는지까지 본다. 훅은 세션에서 settings.local.json 의 env 를
+  # 받아 돌므로, 여기서도 같은 값을 넣어 실제 조건을 재현한다.
   if command -v jq >/dev/null 2>&1; then
-    out="$(CLAUDE_PROJECT_DIR="$repo" bash "$HERE/hooks/session-start.sh" 2>/dev/null || true)"
+    local wr=""
+    [ -f "$repo/.claude/settings.local.json" ] &&
+      wr="$(jq -r '.env.WIKI_ROOT // empty' "$repo/.claude/settings.local.json" 2>/dev/null || true)"
+    out="$(WIKI_ROOT="$wr" CLAUDE_PROJECT_DIR="$repo" bash "$HERE/hooks/session-start.sh" 2>/dev/null || true)"
     if printf '%s' "$out" | jq -e '.hookSpecificOutput.additionalContext' >/dev/null 2>&1; then
       echo "  ✓ 기억 주입 동작 확인"
+    elif printf '%s' "$out" | jq -e '.systemMessage' >/dev/null 2>&1; then
+      # external 인데 위키를 못 찾은 것 — 하네스가 조용히 죽은 상태라 정보가 아니라 실패다.
+      echo "  ✗ 검증 실패 — 훅이 위키를 찾지 못합니다. settings.local.json 의 env.WIKI_ROOT 를 확인하세요."
+      return 1
     else
       echo "  ℹ 기억 주입 결과가 비어 있습니다 — 위키 log.md 를 확인하세요."
     fi

@@ -69,7 +69,9 @@ PROJECT_KEY=<키> WIKI_MODE=<in-repo|external> [WIKI_ROOT=<경로>] ./migrate.sh
 1. **`install.sh` 재실행** — 키·모드는 구버전 `conf.sh`에서 읽고(0.2.0~0.4.0), 인라인 세대는 위에 적은 방식으로 추론한다. `.claude/llm-wiki.conf.sh` 생성.
 2. **`settings.json` 교체** — install.sh가 만든 `settings.harness.json`(사본 호출을 걷어내고 `permissions.deny`를 더한 완성본)을 적용한다. 원본은 `settings.json.bak`으로 남는다.
 3. **`.claude/hooks/` 삭제** — 여기서 플러그인 훅이 인계받는다.
-4. **검증** — 상태가 `current`인지, `settings.json`에 사본 호출이나 인라인 훅이 남지 않았는지, 훅이 실제로 기억을 주입하는지 확인해 보고한다.
+4. **검증** — 상태가 `current`인지, `settings.json`에 사본 호출이나 인라인 훅이 남지 않았는지, 훅이 실제로 기억을 주입하는지 확인해 보고한다. external 모드에서 위키를 못 찾으면 **정보가 아니라 실패**로 다룬다 — 그 상태는 하네스가 죽은 것이다.
+
+`external` 모드는 위키 경로를 `settings.local.json`의 `env.WIKI_ROOT`에 심는다(기존 설정은 보존). 구버전 훅은 경로를 자기 안에 하드코딩해 뒀지만 현행 훅은 이 값만 보므로, 심지 않으면 마이그레이션이 하네스를 조용히 죽인다.
 
 `external` 모드는 `install.sh`에 위키 경로가 필요하다. `.claude/settings.local.json`의 `env.WIKI_ROOT`에서 읽고, 없으면 **추측하지 않고 멈춘다**(엉뚱한 경로에 위키를 새로 만드는 쪽이 더 나쁘다). 그때는 이렇게 준다.
 
@@ -110,6 +112,7 @@ git checkout .claude/hooks                            # 사본이 커밋돼 있�
 | 훅이 아예 안 돈다 | 이 머신에 플러그인이 없다 | `/plugin install llm-wiki-harness@llm-wiki-harness` |
 | `--scan`이 아무것도 못 찾는다 | 0.2.0 이전이면 파일이 아니라 `settings.json` 훅 문자열로만 찾을 수 있다 | 0.5.1 이상에서 다시 스캔 |
 | 추론된 키가 틀렸다 | 인라인 세대에는 키가 기록돼 있지 않다 | `PROJECT_KEY=... ./migrate.sh --yes <repo>` |
+| external인데 마이그레이션 후 주입이 없다 | `settings.local.json`에 `env.WIKI_ROOT`가 없다. 구버전 훅은 경로를 하드코딩해 뒀어서 없이도 돌았다 | 0.5.3 이상이 자동으로 심는다. 그 전 버전으로 넘겼다면 직접 추가 |
 
 ## 관련 문서
 
